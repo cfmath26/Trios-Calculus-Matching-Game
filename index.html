@@ -1,0 +1,1036 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trio Calculus: f, f', and f'' Card Sort Game</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        fcolor: '#2563eb',   /* Blue for f(x) */
+                        fprime: '#d97706',   /* Amber for f'(x) */
+                        fdouble: '#16a34a'  /* Green for f''(x) */
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Inter Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- KaTeX CDN for Readable LaTeX Typesetting -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"></script>
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            user-select: none;
+        }
+
+        .card-selected {
+            ring: 3px solid #3b82f6;
+            transform: translateY(-2px) scale(1.02);
+            box-shadow: 0 10px 15px -3px rgba(59, 130, 246, 0.3);
+        }
+
+        @keyframes wiggle {
+            0%, 100% { transform: translateX(0); }
+            20% { transform: translateX(-5px); }
+            40% { transform: translateX(5px); }
+            60% { transform: translateX(-3px); }
+            80% { transform: translateX(3px); }
+        }
+
+        .animate-wiggle {
+            animation: wiggle 0.4s ease-in-out;
+        }
+
+        /* Compact Mode Tweaks */
+        .compact-view .card-container {
+            padding: 0.2rem !important;
+        }
+        .compact-view .graph-box {
+            max-height: 60px !important;
+        }
+        .compact-view .slot-box {
+            min-height: 75px !important;
+            padding: 0.2rem !important;
+        }
+
+        /* Hover Zoom Preview for Compact Cards */
+        .zoom-on-hover:hover {
+            transform: scale(1.35);
+            z-index: 50;
+            box-shadow: 0 20px 25px -5px rgba(0,0,0,0.3);
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 5px;
+            height: 5px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(156, 163, 175, 0.4);
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body class="h-full bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 flex flex-col transition-colors duration-200 overflow-hidden">
+
+    <!-- Navbar Header -->
+    <header class="bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 px-3 py-1.5 shrink-0 z-30 shadow-sm">
+        <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-2">
+            <div class="flex items-center space-x-2.5">
+                <div class="bg-gradient-to-tr from-blue-600 via-emerald-600 to-purple-600 text-white p-2 rounded-lg shadow flex items-center justify-center">
+                    <i class="fa-solid fa-chart-line text-lg"></i>
+                </div>
+                <div>
+                    <h1 class="text-base font-extrabold tracking-tight leading-none text-slate-900 dark:text-white">Trio Calculus</h1>
+                    <p class="text-[10px] text-slate-500 dark:text-slate-400 font-medium">Match $f(x)$, $f'(x)$, and $f''(x)$ Derivatives across 3 Pools</p>
+                </div>
+            </div>
+
+            <!-- Stats Bar -->
+            <div class="flex items-center space-x-3 bg-slate-100 dark:bg-slate-700/50 px-3 py-1 rounded-lg text-xs font-semibold border border-slate-200/80 dark:border-slate-600/50">
+                <div class="flex items-center space-x-1" title="Time Elapsed">
+                    <i class="fa-regular fa-clock text-blue-500"></i>
+                    <span id="timer-display" class="font-mono w-10">00:00</span>
+                </div>
+                <div class="h-3 w-px bg-slate-300 dark:bg-slate-600"></div>
+                <div class="flex items-center space-x-1" title="Matched Triplets">
+                    <i class="fa-solid fa-layer-group text-emerald-500"></i>
+                    <span id="match-counter">0 / 5</span>
+                </div>
+                <div class="h-3 w-px bg-slate-300 dark:bg-slate-600"></div>
+                <div class="flex items-center space-x-1" title="Best Time">
+                    <i class="fa-solid fa-trophy text-amber-500"></i>
+                    <span id="high-score-display" class="font-mono">--:--</span>
+                </div>
+            </div>
+
+            <!-- Global Controls -->
+            <div class="flex items-center space-x-2">
+                <!-- Layout Mode Toggle -->
+                <button id="view-mode-btn" onclick="game.toggleViewMode()" class="px-2.5 py-1 bg-indigo-50 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 hover:bg-indigo-100 rounded-lg text-xs font-bold transition flex items-center gap-1.5">
+                    <i id="view-mode-icon" class="fa-solid fa-compress"></i>
+                    <span id="view-mode-text" class="hidden sm:inline">Fit Screen Mode</span>
+                </button>
+
+                <!-- Difficulty Select -->
+                <select id="difficulty-select" onchange="game.changeDifficulty(this.value)" class="bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 text-xs font-semibold rounded-lg px-2 py-1 outline-none focus:ring-2 focus:ring-blue-500 transition cursor-pointer">
+                    <option value="easy" selected>5 Triplets (Compact)</option>
+                    <option value="hard">10 Triplets (Full Deck)</option>
+                </select>
+
+                <button onclick="game.resetGame()" class="p-1 sm:px-2 py-1 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-lg text-xs font-semibold transition flex items-center gap-1" title="Reset Game">
+                    <i class="fa-solid fa-arrows-rotate"></i>
+                    <span class="hidden sm:inline">Reset</span>
+                </button>
+
+                <button id="theme-toggle" onclick="toggleDarkMode()" class="p-1 sm:px-2 py-1 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-lg text-xs font-semibold transition" title="Toggle Theme">
+                    <i id="theme-icon" class="fa-solid fa-moon"></i>
+                </button>
+
+                <button onclick="openInstructionsModal()" class="p-1 sm:px-2 py-1 bg-blue-50 dark:bg-blue-900/40 text-blue-600 dark:text-blue-300 hover:bg-blue-100 rounded-lg text-xs font-semibold transition" title="Instructions">
+                    <i class="fa-solid fa-circle-question"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Workspace -->
+    <main id="main-workspace" class="flex-1 max-w-7xl w-full mx-auto p-2 flex flex-col xl:flex-row gap-2.5 overflow-hidden">
+
+        <!-- Left / Slots Workspace -->
+        <section id="slots-panel" class="flex-[1.2] flex flex-col bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden min-h-0">
+            <div class="px-3 py-1.5 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between bg-slate-50/70 dark:bg-slate-800/80 shrink-0">
+                <div class="flex items-center space-x-2">
+                    <h2 class="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                        <i class="fa-solid fa-layer-group text-blue-500"></i>
+                        Triplet Matching Rows
+                    </h2>
+                </div>
+
+                <button onclick="game.checkMatches()" class="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-bold text-xs rounded-lg shadow-sm transition flex items-center gap-1.5">
+                    <i class="fa-solid fa-check-double text-xs"></i>
+                    <span>Validate Matches</span>
+                </button>
+            </div>
+
+            <!-- Scrollable Slots View -->
+            <div id="slots-container" class="flex-1 p-2 overflow-y-auto space-y-2">
+                <!-- Dynamically Rendered Set Rows -->
+            </div>
+        </section>
+
+        <!-- Right / 3-Column Derivative Cards Pool -->
+        <aside id="deck-panel" class="flex-[1.8] flex flex-col bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden min-h-0">
+            <div class="px-3 py-1.5 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between bg-slate-50/70 dark:bg-slate-800/80 shrink-0">
+                <div class="flex items-center gap-2">
+                    <h2 class="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                        <i class="fa-solid fa-grip-vertical text-indigo-500"></i>
+                        Derivative Card Pools
+                    </h2>
+                    <span id="deck-count" class="px-2 py-0.5 bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 rounded-full text-[10px] font-extrabold">15 Remaining</span>
+                </div>
+                <div class="text-[10px] text-slate-400 dark:text-slate-500 hidden sm:block">
+                    Select or drag cards into matching columns
+                </div>
+            </div>
+
+            <!-- 3 Columns Area for f(x), f'(x), and f''(x) -->
+            <div class="flex-1 grid grid-cols-3 gap-2 p-2 overflow-hidden bg-slate-50/50 dark:bg-slate-900/30">
+                
+                <!-- Column 1: f(x) -->
+                <div class="flex flex-col bg-blue-50/40 dark:bg-blue-950/20 rounded-lg border border-blue-200/80 dark:border-blue-900/40 overflow-hidden min-h-0">
+                    <div class="px-2 py-1 bg-blue-100/70 dark:bg-blue-900/50 border-b border-blue-200 dark:border-blue-800/60 flex items-center justify-between shrink-0">
+                        <span class="text-[11px] font-extrabold text-blue-800 dark:text-blue-300 flex items-center gap-1">
+                            <span class="w-2 h-2 rounded-full bg-blue-600"></span>
+                            $f(x)$ Pool
+                        </span>
+                        <span id="count-f" class="text-[10px] font-bold text-blue-600 dark:text-blue-400">5</span>
+                    </div>
+                    <div id="pool-col-f" class="flex-1 p-1.5 overflow-y-auto space-y-2"></div>
+                </div>
+
+                <!-- Column 2: f'(x) -->
+                <div class="flex flex-col bg-emerald-50/40 dark:bg-emerald-950/20 rounded-lg border border-emerald-200/80 dark:border-emerald-900/40 overflow-hidden min-h-0">
+                    <div class="px-2 py-1 bg-emerald-100/70 dark:bg-emerald-900/50 border-b border-emerald-200 dark:border-emerald-800/60 flex items-center justify-between shrink-0">
+                        <span class="text-[11px] font-extrabold text-emerald-800 dark:text-emerald-300 flex items-center gap-1">
+                            <span class="w-2 h-2 rounded-full bg-emerald-600"></span>
+                            $f'(x)$ Pool
+                        </span>
+                        <span id="count-f1" class="text-[10px] font-bold text-emerald-600 dark:text-emerald-400">5</span>
+                    </div>
+                    <div id="pool-col-f1" class="flex-1 p-1.5 overflow-y-auto space-y-2"></div>
+                </div>
+
+                <!-- Column 3: f''(x) -->
+                <div class="flex flex-col bg-purple-50/40 dark:bg-purple-950/20 rounded-lg border border-purple-200/80 dark:border-purple-900/40 overflow-hidden min-h-0">
+                    <div class="px-2 py-1 bg-purple-100/70 dark:bg-purple-900/50 border-b border-purple-200 dark:border-purple-800/60 flex items-center justify-between shrink-0">
+                        <span class="text-[11px] font-extrabold text-purple-800 dark:text-purple-300 flex items-center gap-1">
+                            <span class="w-2 h-2 rounded-full bg-purple-600"></span>
+                            $f''(x)$ Pool
+                        </span>
+                        <span id="count-f2" class="text-[10px] font-bold text-purple-600 dark:text-purple-400">5</span>
+                    </div>
+                    <div id="pool-col-f2" class="flex-1 p-1.5 overflow-y-auto space-y-2"></div>
+                </div>
+
+            </div>
+        </aside>
+
+    </main>
+
+    <!-- Modal: Justification Prompt -->
+    <div id="justification-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-3 hidden">
+        <div class="bg-white dark:bg-slate-800 rounded-2xl max-w-lg w-full border border-slate-200 dark:border-slate-700 shadow-2xl p-5 relative animate-in fade-in zoom-in duration-200">
+            <div class="flex items-start justify-between">
+                <div class="flex items-center space-x-3">
+                    <div class="p-2.5 bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 rounded-xl">
+                        <i class="fa-solid fa-lightbulb text-xl"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-base font-bold text-slate-900 dark:text-white">Match Confirmed!</h3>
+                        <p class="text-xs text-slate-500 dark:text-slate-400">Mathematical Justification for Triplet <span id="justification-set-num">1</span></p>
+                    </div>
+                </div>
+                <button onclick="closeJustificationModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+
+            <div id="justification-body" class="mt-4 space-y-3">
+                <p class="text-xs font-semibold text-slate-700 dark:text-slate-300">Key Calculus Relationships Observed:</p>
+                <div id="justification-options" class="space-y-2 text-xs"></div>
+            </div>
+
+            <div class="mt-5 flex justify-end">
+                <button onclick="closeJustificationModal()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-sm transition">
+                    Continue Game
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Completion Screen -->
+    <div id="completion-modal" class="fixed inset-0 bg-slate-900/70 backdrop-blur-md z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white dark:bg-slate-800 rounded-2xl max-w-md w-full border border-slate-200 dark:border-slate-700 shadow-2xl p-6 text-center">
+            <div class="w-14 h-14 bg-gradient-to-tr from-emerald-500 to-teal-400 text-white rounded-2xl mx-auto flex items-center justify-center shadow-lg text-2xl mb-3">
+                <i class="fa-solid fa-trophy"></i>
+            </div>
+            <h2 class="text-2xl font-extrabold text-slate-900 dark:text-white">Excellent Calculus Work!</h2>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">You correctly matched all derivative sets!</p>
+
+            <div class="my-5 grid grid-cols-2 gap-3 bg-slate-50 dark:bg-slate-700/40 p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs">
+                <div class="text-center">
+                    <span class="block text-[10px] font-bold text-slate-400 uppercase">Final Time</span>
+                    <span id="final-time" class="text-base font-extrabold text-slate-800 dark:text-slate-100">02:45</span>
+                </div>
+                <div class="text-center">
+                    <span class="block text-[10px] font-bold text-slate-400 uppercase">Total Attempts</span>
+                    <span id="final-attempts" class="text-base font-extrabold text-slate-800 dark:text-slate-100">2</span>
+                </div>
+            </div>
+
+            <div class="flex gap-2">
+                <button onclick="game.resetGame(); closeCompletionModal();" class="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow transition">
+                    Play Again
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Instructions -->
+    <div id="instructions-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white dark:bg-slate-800 rounded-2xl max-w-md w-full border border-slate-200 dark:border-slate-700 shadow-2xl p-5">
+            <div class="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-700">
+                <h3 class="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                    <i class="fa-solid fa-graduation-cap text-blue-500"></i>
+                    How to Play Trio Calculus
+                </h3>
+                <button onclick="closeInstructionsModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+
+            <div id="instructions-content" class="py-3 space-y-2.5 text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                <p><strong>Goal:</strong> Form matching triplets by choosing 1 card from each column: $f(x)$, $f'(x)$, and $f''(x)$.</p>
+                <div class="space-y-1">
+                    <p><strong>3 Column Layout:</strong></p>
+                    <ul class="list-disc pl-5 space-y-1 text-slate-500 dark:text-slate-400">
+                        <li><strong class="text-blue-600 dark:text-blue-400">$f(x)$ Column:</strong> Contains original function graphs.</li>
+                        <li><strong class="text-emerald-600 dark:text-emerald-400">$f'(x)$ Column:</strong> Contains first derivative graphs.</li>
+                        <li><strong class="text-purple-600 dark:text-purple-400">$f''(x)$ Column:</strong> Contains second derivative graphs.</li>
+                    </ul>
+                </div>
+            </div>
+
+            <button onclick="closeInstructionsModal()" class="w-full py-2 bg-slate-800 dark:bg-slate-700 hover:bg-slate-900 text-white rounded-xl text-xs font-bold transition">
+                Got it, Let's Play!
+            </button>
+        </div>
+    </div>
+
+    <script>
+        const FUNCTION_DATASETS = [
+            {
+                id: 'cubic_standard',
+                name: 'Cubic',
+                domain: [-2.5, 2.5],
+                range: [-4, 4],
+                f: (x) => Math.pow(x, 3) - 3 * x,
+                f1: (x) => 3 * Math.pow(x, 2) - 3,
+                f2: (x) => 6 * x,
+                keyPointsF: [[-1, 2], [1, -2], [0, 0]],
+                keyPointsF1: [[-1, 0], [1, 0], [0, -3]],
+                keyPointsF2: [[0, 0]],
+                justifications: [
+                    "Local extrema of $f(x) = x^3 - 3x$ at $x = \\pm 1$ correspond to zeros of $f'(x) = 3x^2 - 3$.",
+                    "The inflection point of $f(x)$ at $x = 0$ matches $f''(0) = 0$.",
+                    "$f'(x)$ is an upward opening parabola with vertex at $(0, -3)$."
+                ]
+            },
+            {
+                id: 'cubic_inverted',
+                name: 'Inverted Cubic',
+                domain: [-2.5, 2.5],
+                range: [-4, 4],
+                f: (x) => -Math.pow(x, 3) + 3 * x,
+                f1: (x) => -3 * Math.pow(x, 2) + 3,
+                f2: (x) => -6 * x,
+                keyPointsF: [[-1, -2], [1, 2], [0, 0]],
+                keyPointsF1: [[-1, 0], [1, 0], [0, 3]],
+                keyPointsF2: [[0, 0]],
+                justifications: [
+                    "$f(x)$ has a local min at $x = -1$ and local max at $x = 1$.",
+                    "$f'(x)$ is a downward-facing parabola with zeros at $x = \\pm 1$.",
+                    "$f''(x) = -6x$ is a line with negative slope passing through $(0,0)$."
+                ]
+            },
+            {
+                id: 'quartic_w',
+                name: 'Quartic W-Shape',
+                domain: [-2.2, 2.2],
+                range: [-2, 4],
+                f: (x) => Math.pow(x, 4) - 2 * Math.pow(x, 2),
+                f1: (x) => 4 * Math.pow(x, 3) - 4 * x,
+                f2: (x) => 12 * Math.pow(x, 2) - 4,
+                keyPointsF: [[-1, -1], [1, -1], [0, 0]],
+                keyPointsF1: [[-1, 0], [0, 0], [1, 0]],
+                keyPointsF2: [[-0.577, 0], [0.577, 0]],
+                justifications: [
+                    "The 3 local extrema on $f(x)$ align with the 3 real roots of cubic $f'(x)$ at $x = 0, \\pm 1$.",
+                    "The 2 inflection points on $f(x)$ match the zeros of $f''(x) = 12x^2 - 4$."
+                ]
+            },
+            {
+                id: 'quartic_m',
+                name: 'Quartic M-Shape',
+                domain: [-2.2, 2.2],
+                range: [-4, 2],
+                f: (x) => -Math.pow(x, 4) + 2 * Math.pow(x, 2),
+                f1: (x) => -4 * Math.pow(x, 3) + 4 * x,
+                f2: (x) => -12 * Math.pow(x, 2) + 4,
+                keyPointsF: [[-1, 1], [1, 1], [0, 0]],
+                keyPointsF1: [[-1, 0], [0, 0], [1, 0]],
+                keyPointsF2: [[-0.577, 0], [0.577, 0]],
+                justifications: [
+                    "$f(x)$ has peaks at $x = \\pm 1$ where $f'(x) = 0$.",
+                    "$f''(x)$ is a downward parabola with maximum value $+4$ at $x=0$."
+                ]
+            },
+            {
+                id: 'exponential',
+                name: 'Exponential',
+                domain: [-2, 2.5],
+                range: [-2, 6],
+                f: (x) => Math.exp(x) - 1,
+                f1: (x) => Math.exp(x),
+                f2: (x) => Math.exp(x),
+                keyPointsF: [[0, 0]],
+                keyPointsF1: [[0, 1]],
+                keyPointsF2: [[0, 1]],
+                justifications: [
+                    "$f'(x) = f''(x) = e^x$, both strictly positive everywhere.",
+                    "$f(x) = e^x - 1$ is monotonic increasing and concave up everywhere."
+                ]
+            },
+            {
+                id: 'sine',
+                name: 'Sine Wave',
+                domain: [-3.5, 3.5],
+                range: [-2, 2],
+                f: (x) => Math.sin(x),
+                f1: (x) => Math.cos(x),
+                f2: (x) => -Math.sin(x),
+                keyPointsF: [[1.57, 1], [-1.57, -1], [0, 0]],
+                keyPointsF1: [[0, 1], [1.57, 0], [-1.57, 0]],
+                keyPointsF2: [[0, 0], [1.57, -1]],
+                justifications: [
+                    "$f(x) = \\sin(x)$ peaks at $x = \\pi/2$ where $f'(x) = \\cos(x) = 0$.",
+                    "$f''(x) = -\\sin(x)$, an exact vertical reflection of $f(x)$ across the x-axis."
+                ]
+            },
+            {
+                id: 'volcano_rational',
+                name: 'Rational Volcano',
+                domain: [-3, 3],
+                range: [-2, 4],
+                f: (x) => 3 / (x * x + 1),
+                f1: (x) => -6 * x / Math.pow(x * x + 1, 2),
+                f2: (x) => (18 * x * x - 6) / Math.pow(x * x + 1, 3),
+                keyPointsF: [[0, 3]],
+                keyPointsF1: [[0, 0]],
+                keyPointsF2: [[-0.577, 0], [0.577, 0]],
+                justifications: [
+                    "$f(x)$ is symmetric with a peak at $(0, 3)$; $f'(x)$ is odd with $f'(0) = 0$.",
+                    "Inflection points of $f(x)$ align with maximum/minimum slopes of $f'(x)$."
+                ]
+            },
+            {
+                id: 'logistic',
+                name: 'Logistic Sigmoid',
+                domain: [-4, 4],
+                range: [-1, 4],
+                f: (x) => 3 / (1 + Math.exp(-x)),
+                f1: (x) => (3 * Math.exp(-x)) / Math.pow(1 + Math.exp(-x), 2),
+                f2: (x) => (3 * Math.exp(-x) * (Math.exp(-x) - 1)) / Math.pow(1 + Math.exp(-x), 3),
+                keyPointsF: [[0, 1.5]],
+                keyPointsF1: [[0, 0.75]],
+                keyPointsF2: [[0, 0]],
+                justifications: [
+                    "$f(x)$ is strictly increasing with an inflection point at $x = 0$.",
+                    "$f'(x)$ is a symmetric bell curve with peak at $x = 0$.",
+                    "$f''(x)$ crosses zero at $x = 0$, shifting from positive to negative."
+                ]
+            },
+            {
+                id: 'cusped_power',
+                name: 'Cusped Power',
+                domain: [-2.5, 2.5],
+                range: [-1, 3],
+                f: (x) => Math.pow(Math.abs(x), 2/3),
+                f1: (x) => x === 0 ? 0 : (2/3) * Math.sign(x) / Math.pow(Math.abs(x), 1/3),
+                f2: (x) => x === 0 ? 0 : (-2/9) / Math.pow(Math.abs(x), 4/3),
+                keyPointsF: [[0, 0]],
+                keyPointsF1: [],
+                keyPointsF2: [],
+                justifications: [
+                    "$f(x) = x^{2/3}$ has a sharp cusp (non-differentiable point) at $x = 0$.",
+                    "$f'(x)$ has a vertical asymptote discontinuity at $x = 0$.",
+                    "$f''(x) < 0$ everywhere except $x=0$, showing $f(x)$ is concave down."
+                ]
+            },
+            {
+                id: 'damped_oscillation',
+                name: 'Damped Oscillation',
+                domain: [-0.5, 5],
+                range: [-1.5, 3],
+                f: (x) => 2.5 * Math.sin(2 * x) * Math.exp(-0.5 * x),
+                f1: (x) => 2.5 * Math.exp(-0.5 * x) * (2 * Math.cos(2 * x) - 0.5 * Math.sin(2 * x)),
+                f2: (x) => 2.5 * Math.exp(-0.5 * x) * (-3.75 * Math.sin(2 * x) - 2 * Math.cos(2 * x)),
+                keyPointsF: [[0.68, 1.78]],
+                keyPointsF1: [[0.68, 0]],
+                keyPointsF2: [],
+                justifications: [
+                    "Oscillations decay exponentially as $x \\to \\infty$.",
+                    "Zeros of $f'(x)$ match successive local extrema of $f(x)$."
+                ]
+            }
+        ];
+
+        function renderMathInDOM(element = document.body) {
+            if (window.renderMathInElement) {
+                window.renderMathInElement(element, {
+                    delimiters: [
+                        {left: '$$', right: '$$', display: true},
+                        {left: '$', right: '$', display: false}
+                    ],
+                    throwOnError: false
+                });
+            }
+        }
+
+        function generateGraphSVG(fn, domain, range, keyPoints = [], colorHex = '#2563eb', height = 110, width = 180) {
+            const padding = 14;
+            const plotW = width - 2 * padding;
+            const plotH = height - 2 * padding;
+
+            const [xMin, xMax] = domain;
+            const [yMin, yMax] = range;
+
+            const mapX = (x) => padding + ((x - xMin) / (xMax - xMin)) * plotW;
+            const mapY = (y) => height - padding - ((y - yMin) / (yMax - yMin)) * plotH;
+
+            const steps = 70;
+            const dx = (xMax - xMin) / steps;
+            let pathD = '';
+            let started = false;
+
+            for (let i = 0; i <= steps; i++) {
+                const x = xMin + i * dx;
+                let y = fn(x);
+
+                if (isNaN(y) || !isFinite(y)) {
+                    started = false;
+                    continue;
+                }
+                y = Math.max(yMin - 1.5, Math.min(yMax + 1.5, y));
+
+                const cx = mapX(x);
+                const cy = mapY(y);
+
+                if (!started) {
+                    pathD += `M ${cx.toFixed(1)} ${cy.toFixed(1)}`;
+                    started = true;
+                } else {
+                    pathD += ` L ${cx.toFixed(1)} ${cy.toFixed(1)}`;
+                }
+            }
+
+            const xAxisY = mapY(0);
+            const yAxisX = mapX(0);
+
+            let gridSVG = '';
+            for (let x = Math.ceil(xMin); x <= Math.floor(xMax); x++) {
+                if (x === 0) continue;
+                const gx = mapX(x);
+                gridSVG += `<line x1="${gx}" y1="${padding}" x2="${gx}" y2="${height - padding}" stroke="currentColor" class="text-slate-200 dark:text-slate-700" stroke-width="1" stroke-dasharray="2,2"/>`;
+            }
+
+            let dotsSVG = '';
+            keyPoints.forEach(([kx, ky]) => {
+                if (kx >= xMin && kx <= xMax && ky >= yMin && ky <= yMax) {
+                    dotsSVG += `<circle cx="${mapX(kx)}" cy="${mapY(ky)}" r="3" fill="${colorHex}" stroke="#ffffff" stroke-width="1"/>`;
+                }
+            });
+
+            return `
+                <svg viewBox="0 0 ${width} ${height}" class="w-full h-auto select-none pointer-events-none">
+                    ${gridSVG}
+                    <line x1="${padding}" y1="${xAxisY}" x2="${width - padding}" y2="${xAxisY}" stroke="currentColor" class="text-slate-400 dark:text-slate-500" stroke-width="1.2"/>
+                    <line x1="${yAxisX}" y1="${padding}" x2="${yAxisX}" y2="${height - padding}" stroke="currentColor" class="text-slate-400 dark:text-slate-500" stroke-width="1.2"/>
+                    <path d="${pathD}" fill="none" stroke="${colorHex}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+                    ${dotsSVG}
+                </svg>
+            `;
+        }
+
+        class TrioCalculusGame {
+            constructor() {
+                this.difficulty = 'easy';
+                this.isFitScreen = true;
+                this.activeSets = [];
+                this.cards = [];
+                this.slots = {};
+                this.selectedCardId = null;
+                this.attempts = 0;
+                this.matchesCount = 0;
+                this.timerSeconds = 0;
+                this.timerInterval = null;
+
+                this.init();
+            }
+
+            init() {
+                this.loadHighScore();
+                this.resetGame();
+            }
+
+            loadHighScore() {
+                const hs = localStorage.getItem('trio_calc_highscore');
+                document.getElementById('high-score-display').textContent = hs ? hs : '--:--';
+            }
+
+            startTimer() {
+                if (this.timerInterval) clearInterval(this.timerInterval);
+                this.timerSeconds = 0;
+                this.updateTimerDisplay();
+                this.timerInterval = setInterval(() => {
+                    this.timerSeconds++;
+                    this.updateTimerDisplay();
+                }, 1000);
+            }
+
+            updateTimerDisplay() {
+                const mins = Math.floor(this.timerSeconds / 60).toString().padStart(2, '0');
+                const secs = (this.timerSeconds % 60).toString().padStart(2, '0');
+                document.getElementById('timer-display').textContent = `${mins}:${secs}`;
+            }
+
+            toggleViewMode() {
+                this.isFitScreen = !this.isFitScreen;
+                const btnText = document.getElementById('view-mode-text');
+                const btnIcon = document.getElementById('view-mode-icon');
+                const workspace = document.getElementById('main-workspace');
+
+                if (this.isFitScreen) {
+                    workspace.classList.add('compact-view');
+                    btnText.textContent = "Fit Screen Mode";
+                    btnIcon.className = "fa-solid fa-compress";
+                } else {
+                    workspace.classList.remove('compact-view');
+                    btnText.textContent = "Full View Mode";
+                    btnIcon.className = "fa-solid fa-expand";
+                }
+                this.renderSlots();
+                this.renderDeck();
+            }
+
+            changeDifficulty(level) {
+                this.difficulty = level;
+                this.resetGame();
+            }
+
+            resetGame() {
+                const count = this.difficulty === 'easy' ? 5 : 10;
+
+                const shuffled = [...FUNCTION_DATASETS].sort(() => 0.5 - Math.random());
+                this.activeSets = shuffled.slice(0, count);
+
+                this.attempts = 0;
+                this.matchesCount = 0;
+                this.selectedCardId = null;
+                this.updateStats();
+
+                this.cards = [];
+                this.slots = {};
+
+                this.activeSets.forEach((dataset, setIdx) => {
+                    this.slots[setIdx] = { f: null, f1: null, f2: null, locked: false };
+
+                    this.cards.push({
+                        id: `card_${setIdx}_f`,
+                        setId: setIdx,
+                        order: 'f',
+                        dataset: dataset,
+                        color: '#2563eb', // Blue for f(x)
+                        fn: dataset.f,
+                        keyPoints: dataset.keyPointsF
+                    });
+                    this.cards.push({
+                        id: `card_${setIdx}_f1`,
+                        setId: setIdx,
+                        order: 'f1',
+                        dataset: dataset,
+                        color: '#059669', // Emerald/Green for f'(x)
+                        fn: dataset.f1,
+                        keyPoints: dataset.keyPointsF1
+                    });
+                    this.cards.push({
+                        id: `card_${setIdx}_f2`,
+                        setId: setIdx,
+                        order: 'f2',
+                        dataset: dataset,
+                        color: '#9333ea', // Purple/Violet for f''(x)
+                        fn: dataset.f2,
+                        keyPoints: dataset.keyPointsF2
+                    });
+                });
+
+                // Assign random display number identifiers within each pool
+                ['f', 'f1', 'f2'].forEach(orderType => {
+                    const poolCards = this.cards.filter(c => c.order === orderType);
+                    poolCards.sort(() => 0.5 - Math.random());
+                    poolCards.forEach((c, idx) => c.displayNum = idx + 1);
+                });
+
+                this.toggleViewMode();
+                this.startTimer();
+                setTimeout(() => renderMathInDOM(), 100);
+            }
+
+            updateStats() {
+                document.getElementById('match-counter').textContent = `${this.matchesCount} / ${this.activeSets.length}`;
+            }
+
+            renderSlots() {
+                const container = document.getElementById('slots-container');
+                container.innerHTML = '';
+
+                this.activeSets.forEach((dataset, setIdx) => {
+                    const slotData = this.slots[setIdx];
+                    const isLocked = slotData.locked;
+
+                    const setEl = document.createElement('div');
+                    setEl.className = `p-2 rounded-xl border transition-all ${
+                        isLocked 
+                            ? 'bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-300 dark:border-emerald-800' 
+                            : 'bg-slate-50/80 dark:bg-slate-800/40 border-slate-200 dark:border-slate-700'
+                    }`;
+                    setEl.id = `slot-set-${setIdx}`;
+
+                    setEl.innerHTML = `
+                        <div class="flex items-center justify-between mb-1.5">
+                            <div class="flex items-center gap-1.5">
+                                <span class="w-5 h-5 rounded-full ${isLocked ? 'bg-emerald-600' : 'bg-slate-700 dark:bg-slate-600'} text-white text-[10px] font-extrabold flex items-center justify-center">
+                                    ${setIdx + 1}
+                                </span>
+                                <h3 class="text-[11px] font-extrabold uppercase text-slate-700 dark:text-slate-300">Triplet ${setIdx + 1}</h3>
+                                ${isLocked ? '<span class="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1"><i class="fa-solid fa-lock"></i> Locked</span>' : ''}
+                            </div>
+                            ${isLocked ? `
+                                <button onclick="openJustificationModalForSet(${setIdx})" class="text-[11px] font-bold text-blue-600 dark:text-blue-400 hover:underline">
+                                    Why it matches
+                                </button>
+                            ` : ''}
+                        </div>
+
+                        <div class="grid grid-cols-3 gap-2">
+                            ${this.renderDropZone(setIdx, 'f', '$f(x)$ Slot', 'border-blue-300 dark:border-blue-800/60 bg-blue-50/20')}
+                            ${this.renderDropZone(setIdx, 'f1', '$f\'(x)$ Slot', 'border-emerald-300 dark:border-emerald-800/60 bg-emerald-50/20')}
+                            ${this.renderDropZone(setIdx, 'f2', '$f\'\'(x)$ Slot', 'border-purple-300 dark:border-purple-800/60 bg-purple-50/20')}
+                        </div>
+                    `;
+
+                    container.appendChild(setEl);
+                });
+
+                this.attachDropZoneEvents();
+                renderMathInDOM(container);
+            }
+
+            renderDropZone(setIdx, orderType, labelText, colStyleClass) {
+                const cardId = this.slots[setIdx][orderType];
+                const card = cardId ? this.cards.find(c => c.id === cardId) : null;
+                const isLocked = this.slots[setIdx].locked;
+
+                return `
+                    <div 
+                        data-set="${setIdx}" 
+                        data-order="${orderType}" 
+                        onclick="game.handleSlotClick(${setIdx}, '${orderType}')"
+                        class="drop-zone slot-box border-2 border-dashed rounded-lg p-1 min-h-[85px] flex flex-col items-center justify-center transition-all cursor-pointer relative ${
+                            card ? 'border-solid bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-700' : `${colStyleClass} hover:bg-slate-100/80`
+                        }"
+                    >
+                        ${card ? this.renderCardHTML(card, true, isLocked) : `
+                            <span class="text-[11px] font-bold text-slate-400 dark:text-slate-500">${labelText}</span>
+                        `}
+                    </div>
+                `;
+            }
+
+            renderDeck() {
+                const assignedCardIds = new Set();
+                Object.values(this.slots).forEach(slot => {
+                    if (slot.f) assignedCardIds.add(slot.f);
+                    if (slot.f1) assignedCardIds.add(slot.f1);
+                    if (slot.f2) assignedCardIds.add(slot.f2);
+                });
+
+                const unassignedCards = this.cards.filter(c => !assignedCardIds.has(c.id));
+                document.getElementById('deck-count').textContent = `${unassignedCards.length} Remaining`;
+
+                const pools = {
+                    f: document.getElementById('pool-col-f'),
+                    f1: document.getElementById('pool-col-f1'),
+                    f2: document.getElementById('pool-col-f2')
+                };
+
+                Object.keys(pools).forEach(type => {
+                    pools[type].innerHTML = '';
+                    const colCards = unassignedCards.filter(c => c.order === type);
+                    document.getElementById(`count-${type}`).textContent = colCards.length;
+
+                    if (colCards.length === 0) {
+                        pools[type].innerHTML = `
+                            <div class="h-20 flex items-center justify-center text-center text-slate-300 dark:text-slate-600 text-[10px] font-bold">
+                                Column Empty
+                            </div>
+                        `;
+                        return;
+                    }
+
+                    colCards.forEach(card => {
+                        const cardWrapper = document.createElement('div');
+                        cardWrapper.className = `cursor-pointer transition-all ${this.selectedCardId === card.id ? 'card-selected' : ''}`;
+                        cardWrapper.innerHTML = this.renderCardHTML(card, false, false);
+
+                        cardWrapper.onclick = () => this.handleDeckCardClick(card.id);
+
+                        const cardEl = cardWrapper.firstElementChild;
+                        cardEl.draggable = true;
+                        cardEl.ondragstart = (e) => {
+                            e.dataTransfer.setData('text/plain', card.id);
+                            cardEl.classList.add('opacity-50');
+                        };
+                        cardEl.ondragend = () => {
+                            cardEl.classList.remove('opacity-50');
+                        };
+
+                        pools[type].appendChild(cardWrapper);
+                    });
+
+                    renderMathInDOM(pools[type]);
+                });
+            }
+
+            renderCardHTML(card, isInSlot = false, isLocked = false) {
+                const svgString = generateGraphSVG(card.fn, card.dataset.domain, card.dataset.range, card.keyPoints, card.color);
+
+                let badgeHtml = '';
+                if (card.order === 'f') badgeHtml = '<span class="px-1 bg-blue-100 text-blue-800 dark:bg-blue-900/80 dark:text-blue-200 rounded text-[9px] font-bold">$f$</span>';
+                if (card.order === 'f1') badgeHtml = '<span class="px-1 bg-emerald-100 text-emerald-800 dark:bg-emerald-900/80 dark:text-emerald-200 rounded text-[9px] font-bold">$f\'$</span>';
+                if (card.order === 'f2') badgeHtml = '<span class="px-1 bg-purple-100 text-purple-800 dark:bg-purple-900/80 dark:text-purple-200 rounded text-[9px] font-bold">$f\'\'$</span>';
+
+                return `
+                    <div id="${card.id}" class="card-container zoom-on-hover w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-1.5 shadow-sm hover:shadow transition-all relative">
+                        <div class="flex items-center justify-between mb-1">
+                            <span class="text-[10px] font-extrabold text-slate-600 dark:text-slate-400">Card ${badgeHtml} #${card.displayNum}</span>
+                            <div class="flex items-center space-x-1">
+                                ${isInSlot && !isLocked ? `
+                                    <button onclick="event.stopPropagation(); game.removeCardFromSlot('${card.id}')" class="p-0.5 text-slate-400 hover:text-red-500 rounded" title="Return card to pool">
+                                        <i class="fa-solid fa-xmark text-[10px]"></i>
+                                    </button>
+                                ` : ''}
+                            </div>
+                        </div>
+
+                        <div class="graph-box bg-slate-50 dark:bg-slate-900/60 rounded p-0.5 border border-slate-100 dark:border-slate-800">
+                            ${svgString}
+                        </div>
+                    </div>
+                `;
+            }
+
+            handleDeckCardClick(cardId) {
+                this.selectedCardId = this.selectedCardId === cardId ? null : cardId;
+                this.renderDeck();
+            }
+
+            handleSlotClick(setIdx, orderType) {
+                if (this.slots[setIdx].locked) return;
+
+                if (this.selectedCardId) {
+                    const card = this.cards.find(c => c.id === this.selectedCardId);
+                    // Ensure card is placed into its respective derivative column type slot
+                    if (card.order === orderType) {
+                        this.assignCardToSlot(this.selectedCardId, setIdx, orderType);
+                        this.selectedCardId = null;
+                    } else {
+                        // Shake slot if card type doesn't match slot derivative order
+                        const slotBox = document.querySelector(`[data-set="${setIdx}"][data-order="${orderType}"]`);
+                        if (slotBox) {
+                            slotBox.classList.add('animate-wiggle');
+                            setTimeout(() => slotBox.classList.remove('animate-wiggle'), 400);
+                        }
+                    }
+                } else if (this.slots[setIdx][orderType]) {
+                    const cardId = this.slots[setIdx][orderType];
+                    this.removeCardFromSlot(cardId);
+                }
+            }
+
+            assignCardToSlot(cardId, setIdx, orderType) {
+                this.removeCardFromSlot(cardId, false);
+                this.slots[setIdx][orderType] = cardId;
+                this.renderSlots();
+                this.renderDeck();
+            }
+
+            removeCardFromSlot(cardId, shouldRender = true) {
+                Object.keys(this.slots).forEach(setIdx => {
+                    if (this.slots[setIdx].locked) return;
+                    ['f', 'f1', 'f2'].forEach(orderType => {
+                        if (this.slots[setIdx][orderType] === cardId) {
+                            this.slots[setIdx][orderType] = null;
+                        }
+                    });
+                });
+
+                if (shouldRender) {
+                    this.renderSlots();
+                    this.renderDeck();
+                }
+            }
+
+            attachDropZoneEvents() {
+                document.querySelectorAll('.drop-zone').forEach(zone => {
+                    zone.ondragover = (e) => {
+                        e.preventDefault();
+                        zone.classList.add('bg-blue-100/50', 'dark:bg-blue-900/40');
+                    };
+                    zone.ondragleave = () => zone.classList.remove('bg-blue-100/50', 'dark:bg-blue-900/40');
+                    zone.ondrop = (e) => {
+                        e.preventDefault();
+                        zone.classList.remove('bg-blue-100/50', 'dark:bg-blue-900/40');
+                        const cardId = e.dataTransfer.getData('text/plain');
+                        const setIdx = parseInt(zone.getAttribute('data-set'));
+                        const orderType = zone.getAttribute('data-order');
+
+                        if (cardId && !isNaN(setIdx)) {
+                            const card = this.cards.find(c => c.id === cardId);
+                            if (card && card.order === orderType) {
+                                this.assignCardToSlot(cardId, setIdx, orderType);
+                            } else {
+                                zone.classList.add('animate-wiggle');
+                                setTimeout(() => zone.classList.remove('animate-wiggle'), 400);
+                            }
+                        }
+                    };
+                });
+            }
+
+            checkMatches() {
+                this.attempts++;
+                let newlyMatched = 0;
+
+                this.activeSets.forEach((dataset, setIdx) => {
+                    const slot = this.slots[setIdx];
+                    if (slot.locked) return;
+
+                    const cardF = slot.f ? this.cards.find(c => c.id === slot.f) : null;
+                    const cardF1 = slot.f1 ? this.cards.find(c => c.id === slot.f1) : null;
+                    const cardF2 = slot.f2 ? this.cards.find(c => c.id === slot.f2) : null;
+
+                    const setEl = document.getElementById(`slot-set-${setIdx}`);
+
+                    if (cardF && cardF1 && cardF2) {
+                        const isCorrect = (cardF.dataset.id === cardF1.dataset.id) && 
+                                          (cardF1.dataset.id === cardF2.dataset.id);
+
+                        if (isCorrect) {
+                            slot.locked = true;
+                            newlyMatched++;
+                            this.matchesCount++;
+                            openJustificationModalForSet(setIdx);
+                        } else {
+                            setEl.classList.add('animate-wiggle', 'border-red-400');
+                            setTimeout(() => setEl.classList.remove('animate-wiggle', 'border-red-400'), 500);
+                        }
+                    }
+                });
+
+                this.updateStats();
+                this.renderSlots();
+
+                if (this.matchesCount === this.activeSets.length) {
+                    clearInterval(this.timerInterval);
+                    this.saveHighScore();
+                    setTimeout(() => openCompletionModal(), 500);
+                }
+            }
+
+            saveHighScore() {
+                const currentTime = document.getElementById('timer-display').textContent;
+                const hs = localStorage.getItem('trio_calc_highscore');
+                if (!hs || currentTime < hs) {
+                    localStorage.setItem('trio_calc_highscore', currentTime);
+                    document.getElementById('high-score-display').textContent = currentTime;
+                }
+            }
+        }
+
+        let game;
+        window.onload = () => {
+            game = new TrioCalculusGame();
+            renderMathInDOM();
+        };
+
+        function openJustificationModalForSet(setIdx) {
+            const dataset = game.activeSets[setIdx];
+            document.getElementById('justification-set-num').textContent = setIdx + 1;
+
+            const optionsContainer = document.getElementById('justification-options');
+            optionsContainer.innerHTML = '';
+
+            dataset.justifications.forEach((text) => {
+                const opt = document.createElement('div');
+                opt.className = 'p-2 bg-slate-100 dark:bg-slate-700/60 rounded-lg flex items-start space-x-2 text-slate-700 dark:text-slate-200 text-xs';
+                opt.innerHTML = `
+                    <i class="fa-solid fa-check text-emerald-500 mt-0.5"></i>
+                    <span>${text}</span>
+                `;
+                optionsContainer.appendChild(opt);
+            });
+
+            const modal = document.getElementById('justification-modal');
+            modal.classList.remove('hidden');
+            renderMathInDOM(modal);
+        }
+
+        function closeJustificationModal() {
+            document.getElementById('justification-modal').classList.add('hidden');
+        }
+
+        function openCompletionModal() {
+            document.getElementById('final-time').textContent = document.getElementById('timer-display').textContent;
+            document.getElementById('final-attempts').textContent = game.attempts;
+            document.getElementById('completion-modal').classList.remove('hidden');
+        }
+
+        function closeCompletionModal() {
+            document.getElementById('completion-modal').classList.add('hidden');
+        }
+
+        function openInstructionsModal() {
+            const modal = document.getElementById('instructions-modal');
+            modal.classList.remove('hidden');
+            renderMathInDOM(modal);
+        }
+
+        function closeInstructionsModal() {
+            document.getElementById('instructions-modal').classList.add('hidden');
+        }
+
+        function toggleDarkMode() {
+            const isDark = document.documentElement.classList.toggle('dark');
+            document.getElementById('theme-icon').className = isDark ? 'fa-solid fa-sun text-amber-400' : 'fa-solid fa-moon';
+        }
+    </script>
+</body>
+</html>
